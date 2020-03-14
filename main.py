@@ -64,7 +64,7 @@ p1 = np.sqrt(S ** 0.961 * Z * T0r * Lm * (qg / (0.028 * Eff * d ** 2.53)) ** (1 
 dp = (p1 - pwhp) / 0.000145038
 
 print(
-    'Carbon dioxide density in the pipeline = {} kg/3.\n'
+    'Carbon dioxide density in the pipeline = {} kg/m3.\n'
     'Compressibility factor = {}\n'
     'Volumetric flow rate of CO2 = {} m3/s.\n'
     'Required pipeline diameter = {} cm.\n'
