@@ -1,13 +1,10 @@
 from __future__ import print_function
 from CoolProp.CoolProp import PropsSI
-# from CoolProp.CoolProp import DerivTerms
 
-import math
 import numpy as np
+import CoolProp
 
-# import CoolProp.CoolProp as CP
-
-# print('CoolProp version: ', CoolProp.__version__)
+print('CoolProp version: ', CoolProp.__version__)
 # print('CoolProp gitrevision: ', CoolProp.__gitrevision__)
 # print('CoolProp fluids: ', CoolProp.__fluids__)
 
