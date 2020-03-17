@@ -5,8 +5,8 @@ import numpy as np
 import CoolProp
 
 print('CoolProp version: ', CoolProp.__version__)
-# print('CoolProp gitrevision: ', CoolProp.__gitrevision__)
-# print('CoolProp fluids: ', CoolProp.__fluids__)
+print('CoolProp gitrevision: ', CoolProp.__gitrevision__)
+print('CoolProp fluids: ', CoolProp.__fluids__)
 
 # Combustion calculations data
 # rho_co2 = 1.98  # [kg/m3] carbon dioxide density at standard conditions
