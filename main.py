@@ -11,7 +11,7 @@ print('CoolProp fluids: ', CoolProp.__fluids__)
 # Combustion calculations data
 # rho_co2 = 1.98  # [kg/m3] carbon dioxide density at standard conditions
 T0 = 21  # [deg C] initial carbon dioxide temperature
-P0 = 0.1  # [Pa] initial carbon dioxide pressure
+p0 = 1e5  # [Pa] initial carbon dioxide pressure
 Mc = 0.012  # [kg/mol] carbon molar mass
 Mh = 0.001  # [kg/mol] hydrogen molar mass
 Mo = 0.016  # [kg/mol] carbon molar mass
@@ -22,9 +22,15 @@ vg = 15.2  # [m/s] maximum gas velocity for the transport pipeline design
 L = 500  # [m] pipeline length
 pwh = 8e6  # [Pa] wellhead compressor entry pressure
 # Pipe calculations data
-# Z = 10  # [-] compressibility factor
 S = 1.5189  # [-] specific gravity of the gas (at 21C, 1 atm)
 Eff = 0.9  # efficiency factor
+fd = 0.01  # [-] Darcy friction factor
+r_c = 3.5  # [-] compression ratio
+gamma = 1.289  # [-] specific heat capacity ration for CO2
+R = 8.3145  # [J/mol/K] gas constant
+eff_comp = 0.7  # compressor efficiency
+eff_dr = 0.9  # electrical driver efficiency
+eff_pp = 0.4  # power plant efficiency
 
 # Carbon dioxide density in the pipeline, [kg/m3]:
 rho_co2 = PropsSI('D', 'T', T0 + 273, 'P', pwh, 'CO2')  # kg/m3
@@ -51,17 +57,25 @@ co2_mass = ch_mass * co2_mass0
 q_co2 = co2_mass / rho_co2
 
 # Required pipeline diameter, [inch]:
-d = np.sqrt(4 * q_co2 / (np.pi * vg)) * 39.3701
+d = np.sqrt(4 * q_co2 / (np.pi * vg))
 
-# Conversion for Panhandle equation
-T0r = T0 * 1.8 + 491.67  # [deg R]
-Lm = L * 0.621371  # [miles]
-pwhp = pwh * 0.000145038  # [psia]
-qg = q_co2 / 0.326992313  # [MMscfD]
+# Required pressure difference, Darcy Weisbach, [Pa]:
+dp = fd * L * rho_co2 * vg ** 2 / 2 / d
 
-# Requred pipeline inlet pressure (1st compressor outlet pressure), [psia]:
-p1 = np.sqrt(S ** 0.961 * Z * T0r * Lm * (qg / (0.028 * Eff * d ** 2.53)) ** (1 / 0.51) + pwhp ** 2)
-dp = (p1 - pwhp) / 0.000145038
+# Required pipeline inlet pressure (1st compressor outlet pressure) [Pa]:
+p_p_in = pwh + dp
+
+# Required amount of compressor stages:
+n_st = np.log(p_p_in / p0) / np.log(r_c)
+
+# Compressibility ratio for isentropic work calculations:
+Z1 = PropsSI('Z', 'T', (T0 + 273), 'P', p0, 'CO2')
+
+# Theoretical isentropic work [J/mol]:
+W_th = gamma * R * Z1 * (T0 + 273) / (gamma - 1) * ((p_p_in / p0) ** (1 - 1 / gamma) - 1)
+
+# Practical compression work of the 1st compressor [J/mol]:
+W_pr = W_th / eff_comp / eff_dr / eff_pp
 
 print(
     'Carbon dioxide density in the pipeline = {} kg/m3.\n'
