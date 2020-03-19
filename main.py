@@ -8,8 +8,6 @@ print('CoolProp version: ', CoolProp.__version__)
 print('CoolProp gitrevision: ', CoolProp.__gitrevision__)
 print('CoolProp fluids: ', CoolProp.__fluids__)
 
-# Combustion calculations data
-# rho_co2 = 1.98  # [kg/m3] carbon dioxide density at standard conditions
 T0 = 21  # [deg C] initial carbon dioxide temperature
 p0 = 1e5  # [Pa] initial carbon dioxide pressure
 Mc = 0.012  # [kg/mol] carbon molar mass
@@ -17,11 +15,9 @@ Mh = 0.001  # [kg/mol] hydrogen molar mass
 Mo = 0.016  # [kg/mol] carbon molar mass
 Q_ch = 500  # [kJ/mol] CH combustion abount of heat generated
 P = 2e6  # [kW] coal power plant power
-eff = 0.3  # [-] power plant efficiency
 vg = 15.2  # [m/s] maximum gas velocity for the transport pipeline design
 L = 500  # [m] pipeline length
 pwh = 8e6  # [Pa] wellhead compressor entry pressure
-# Pipe calculations data
 S = 1.5189  # [-] specific gravity of the gas (at 21C, 1 atm)
 Eff = 0.9  # efficiency factor
 fd = 0.01  # [-] Darcy friction factor
@@ -31,6 +27,19 @@ R = 8.3145  # [J/mol/K] gas constant
 eff_comp = 0.7  # compressor efficiency
 eff_dr = 0.9  # electrical driver efficiency
 eff_pp = 0.4  # power plant efficiency
+F = 0.72  # efficiency factor
+Ew = 0.8  # weld join factor
+Sy = 60000  # [psi] yield strenth
+rho_s = 8000  # [kg/m3] steel density
+ex = 60e6  # [J/kg] exergy requirement for the production of steel and production of a pipe by Szargut
+t_l = 30  # [years] life span of a pipeline
+depth = 3000  # [m] reservoir depth
+k = 1e-14  # [m2] reservoir permeability
+B = 1.1  # formation volume factor
+re = 1000  # [m] reservoir radius
+rw = 0.1  # [m] well radius
+mu = 14.74e-6  # [Pa*s] carbon dioxide dynamic viscosity
+h = 30  # [m] reservoir thickness
 
 # Carbon dioxide density in the pipeline, [kg/m3]:
 rho_co2 = PropsSI('D', 'T', T0 + 273, 'P', pwh, 'CO2')  # kg/m3
@@ -45,7 +54,7 @@ heat = Q_ch / (Mc + Mh) / 3600
 E = P
 
 # Amount of coal required to be burned per second to generate the required amount of electrical energy, [kg]:
-ch_mass = E / (heat * eff) / 3600
+ch_mass = E / (heat * eff_pp) / 3600
 
 # Amount of CO2 produced, when 1kg of coal is burned, 1mol CH produces 1 mol CO2 (from stocheometry eqaution) [kg]:
 co2_mass0 = (Mc + 2 * Mo) / (Mc + Mh)
@@ -56,7 +65,7 @@ co2_mass = ch_mass * co2_mass0
 # Volumetric flow rate of CO2, [m3/s]:
 q_co2 = co2_mass / rho_co2
 
-# Required pipeline diameter, [inch]:
+# Required pipeline diameter, [m]:
 d = np.sqrt(4 * q_co2 / (np.pi * vg))
 
 # Required pressure difference, Darcy Weisbach, [Pa]:
@@ -65,17 +74,51 @@ dp = fd * L * rho_co2 * vg ** 2 / 2 / d
 # Required pipeline inlet pressure (1st compressor outlet pressure) [Pa]:
 p_p_in = pwh + dp
 
+# 1st compressor calculations
 # Required amount of compressor stages:
 n_st = np.log(p_p_in / p0) / np.log(r_c)
 
 # Compressibility ratio for isentropic work calculations:
 Z1 = PropsSI('Z', 'T', (T0 + 273), 'P', p0, 'CO2')
 
-# Theoretical isentropic work [J/mol]:
+# Theoretical isentropic work required per mole of CO2 [J/mol]:
 W_th = gamma * R * Z1 * (T0 + 273) / (gamma - 1) * ((p_p_in / p0) ** (1 - 1 / gamma) - 1)
 
-# Practical compression work of the 1st compressor [J/mol]:
+# Practical compression work of the compressor [J/mol]:
 W_pr = W_th / eff_comp / eff_dr / eff_pp
+
+# Reservoir calculations
+# Reservoir pressure, [Pa]:
+pe = 1000 * 9.81 * depth
+
+# Bottomhole pressure required to inject at given CO2 flow rate, [Pa]:
+p_inj = pe + q_co2/5 * B * mu / (2 * np.pi * k * h) * np.log(re / rw)
+
+# Wellhead injection pressure, [Pa]:
+p_inj_wh = p_inj - rho_co2 * 9.81 * depth
+
+# 2nd compressor calculations
+# Required amount of compressor stages:
+n_st2 = np.log(p_inj_wh / pwh) / np.log(r_c)
+
+# Compressibility ratio for isentropic work calculations:
+Z2 = PropsSI('Z', 'T', (T0 + 273), 'P', p0, 'CO2')
+
+# Theoretical isentropic work required per mole of CO2 [J/mol]:
+W_th2 = gamma * R * Z2 * (T0 + 273) / (gamma - 1) * ((p_inj_wh / pwh) ** (1 - 1 / gamma) - 1)
+
+# Practical compression work of the compressor [J/mol]:
+W_pr2 = W_th2 / eff_comp / eff_dr / eff_pp
+
+# Other exergy calculations
+# pipeline thickness, [m]:
+t = pwh * 0.000145038 * d / (2 * (F * Sy * Ew - pwh * 0.000145038))
+
+# weight of the pipe, [kg]:
+m_pipe = np.pi / 4 * ((d + 2 * t) ** 2 - d ** 2) * L * rho_s
+
+# Exergy flow of the pipeline, [J/s]:
+Ex = m_pipe * ex / t_l / (31.536e6)
 
 print(
     'Carbon dioxide density in the pipeline = {} kg/m3.\n'
@@ -91,6 +134,3 @@ print(
         float("{0:.2f}".format(dp / 1e5)))
 )
 
-# Carbon dioxide enthalpy and entropy calculations at initial conditions:
-# enthalpy = PropsSI('H', 'T', T0 + 273, 'P', P0, 'CO2')
-# entropy = PropsSI('S', 'T', T0 + 273, 'P', P0, 'CO2')
